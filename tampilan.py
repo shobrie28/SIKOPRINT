@@ -5,6 +5,17 @@ import time
 import getpass
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
+import builtins
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+    from rich import box
+    RICH_AKTIF = True
+except ImportError:  # fallback: tampilan polos bila rich belum terpasang
+    RICH_AKTIF = False
 
 
 def aktifkan_utf8_konsol():
@@ -86,14 +97,67 @@ def info_lingkungan_os():
     }
 
 
+_print_asli = builtins.print
+_console = Console(highlight=False, soft_wrap=True) if RICH_AKTIF else None
+
+_GAYA_PREFIKS = (
+    ("[OK]", "bold green"),
+    ("[X]", "bold red"),
+    ("[!]", "bold yellow"),
+)
+
+
+def _cetak_rich(*args, sep=" ", end="\n", file=None, flush=False):
+    """Pengganti print(): pesan [OK]/[X]/[!] diberi warna, nomor menu [1] disorot."""
+    if file is not None or not RICH_AKTIF:
+        return _print_asli(*args, sep=sep, end=end, file=file, flush=flush)
+    teks = Text(sep.join(str(a) for a in args))
+    plain = teks.plain.lstrip()
+    for prefiks, gaya in _GAYA_PREFIKS:
+        if plain.startswith(prefiks):
+            teks.stylize(gaya)
+            break
+    else:
+        teks.highlight_regex(r"\[\d+\]", "bold cyan")
+        teks.highlight_regex(r"\[ATK\d+\]", "bold cyan")
+        if plain.startswith(("TOTAL", "PILIH", "ISI KERANJANG")):
+            teks.stylize("bold")
+    _console.print(teks, end=end)
+
+
+builtins.print = _cetak_rich
+
+
 def garis(karakter="="):
-    print(karakter * LEBAR_DEFAULT)
+    if RICH_AKTIF:
+        _console.print(Text(karakter * LEBAR_DEFAULT, style="dim cyan"))
+    else:
+        _print_asli(karakter * LEBAR_DEFAULT)
 
 
 def judul(teks):
-    garis("=")
-    print(teks.center(LEBAR_DEFAULT))
-    garis("=")
+    if RICH_AKTIF:
+        _console.print(Panel(Text(teks, style="bold white", justify="center"),
+                             box=box.DOUBLE, border_style="cyan",
+                             width=LEBAR_DEFAULT))
+    else:
+        garis("=")
+        _print_asli(teks.center(LEBAR_DEFAULT))
+        garis("=")
+
+
+def buat_tabel(kolom, baris, judul_tabel=None):
+    """Tabel Rich. kolom: [(nama, justify)], baris: list tuple string."""
+    if not RICH_AKTIF:
+        return False
+    t = Table(box=box.ROUNDED, border_style="cyan", header_style="bold magenta",
+              row_styles=["", "dim"], width=LEBAR_DEFAULT, title=judul_tabel)
+    for nama, justify in kolom:
+        t.add_column(nama, justify=justify, overflow="fold")
+    for b in baris:
+        t.add_row(*[str(x) for x in b])
+    _console.print(t)
+    return True
 
 
 GEDUNG_PRINTER_ASCII = [
@@ -121,21 +185,28 @@ TEKS_SIKOPRINT_ASCII = [
 
 def cetak_header_utama():
     """Menampilkan header utama SI-KOPRINT agar tetap muncul di setiap halaman."""
-    lebar_saat_ini = lebar_layar()
-    lebar_gabungan = 81
-    if lebar_saat_ini >= lebar_gabungan:
-        print("═" * lebar_gabungan)
-        for gedung, teks in zip(GEDUNG_PRINTER_ASCII, TEKS_SIKOPRINT_ASCII):
-            print(f"  {gedung}  {teks}  ")
-        print("═" * lebar_gabungan)
-    else:
-        print("═" * LEBAR_DEFAULT)
+    if not RICH_AKTIF:
+        _print_asli("═" * LEBAR_DEFAULT)
         for gedung in GEDUNG_PRINTER_ASCII:
-            print(gedung.center(LEBAR_DEFAULT))
-        print()
+            _print_asli(gedung.center(LEBAR_DEFAULT))
         for teks in TEKS_SIKOPRINT_ASCII:
-            print(teks.strip().center(LEBAR_DEFAULT))
-        print("═" * LEBAR_DEFAULT)
+            _print_asli(teks.strip().center(LEBAR_DEFAULT))
+        _print_asli("═" * LEBAR_DEFAULT)
+        return
+    if lebar_layar() >= LEBAR_DEFAULT:
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(no_wrap=True)
+        grid.add_column(no_wrap=True)
+        for g, t in zip(GEDUNG_PRINTER_ASCII, TEKS_SIKOPRINT_ASCII):
+            grid.add_row(Text(g, style="bold yellow"), Text(t, style="bold cyan"))
+        isi = grid
+    else:
+        isi = Text("\n".join(
+            [g for g in GEDUNG_PRINTER_ASCII] + [""] +
+            [t.strip() for t in TEKS_SIKOPRINT_ASCII]),
+            style="bold cyan", justify="center")
+    _console.print(Panel(isi, box=box.DOUBLE_EDGE, border_style="blue",
+                         width=LEBAR_DEFAULT, padding=(0, 1)))
 
 
 def segarkan_halaman(judul_halaman=None, info_baris=None, pesan_error=None):

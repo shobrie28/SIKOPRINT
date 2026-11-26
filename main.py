@@ -152,8 +152,45 @@ def main():
             break
 
 
-if __name__ == "__main__":
+def _pastikan_textual():
+    """Memastikan textual & rich terpasang; mencoba memasangnya otomatis."""
     try:
-        main()
+        import textual  # noqa: F401
+        import rich  # noqa: F401
+        return True
+    except ImportError:
+        pass
+    import subprocess
+    import sys
+    print("[!] Textual/Rich belum terpasang. Mencoba memasang otomatis...")
+    hasil = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "textual>=0.86.0", "rich>=13.7.0"])
+    if hasil.returncode != 0:
+        return False
+    try:
+        import textual  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def jalankan_tui():
+    if not _pastikan_textual():
+        print("\n[X] Gagal memasang Textual. Jalankan manual:\n"
+              "    pip install -r requirements.txt\n"
+              "Lalu jalankan ulang: python main.py\n"
+              "(Mode lama tanpa Textual: python main.py --cli)")
+        return
+    from tui import jalankan
+    jalankan()
+
+
+if __name__ == "__main__":
+    import sys
+    try:
+        if "--cli" in sys.argv:
+            main()
+        else:
+            jalankan_tui()
     except KeyboardInterrupt:
         print("\nProgram dihentikan oleh pengguna.")

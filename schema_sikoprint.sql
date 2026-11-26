@@ -102,9 +102,9 @@ CREATE TABLE detail_atk (
 -- ============================================================
 INSERT INTO pegawai (username, password, nama_pegawai)
 VALUES (
-    'rina',
+    'sheila',
     '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
-    'Rina'
+    'Sheila Aishameglio Duta Chiara'
 )
 ON CONFLICT (username) DO NOTHING;
 

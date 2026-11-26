@@ -1,6 +1,6 @@
 import psycopg2
 from database import koneksi
-from tampilan import (garis, rupiah, input_teks, input_angka,
+from tampilan import (garis, buat_tabel, rupiah, input_teks, input_angka,
                       input_pilihan, konfirmasi, waktu_sekarang,
                       segarkan_halaman, jeda_layar, BatasRefreshError,
                       format_id_barang, parse_id_barang, TOTAL_MAKSIMUM)
@@ -8,22 +8,31 @@ from nota import buat_kode_booking, cetak_nota_atk
 
 
 def tampil_katalog(conn):
-    garis("-")
-    print(f"{'ID BARANG':<12}{'NAMA BARANG':<26}{'HARGA BARANG':>15}"
-          f"{'STOK':>8}  {'STATUS'}")
-    garis("-")
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM barang ORDER BY id_barang ASC")
         rows = cur.fetchall()
-        if not rows:
-            print("Belum ada barang ATK di katalog.")
-        for b in rows:
-            kode_barang = format_id_barang(b["id_barang"])
-            stok = b["stok_tersedia"]
-            status_teks = "Tersedia" if stok > 0 else "Habis"
-            print(f"{kode_barang:<12}{b['nama_barang']:<26}"
-                  f"{rupiah(b['harga_satuan']):>15}{stok:>8}  {status_teks}")
-    garis("-")
+    if not rows:
+        garis("-")
+        print("Belum ada barang ATK di katalog.")
+        garis("-")
+        return
+    baris = []
+    for b in rows:
+        stok = b["stok_tersedia"]
+        status = "[green]Tersedia[/green]" if stok > 0 else "[red]Habis[/red]"
+        baris.append((format_id_barang(b["id_barang"]), b["nama_barang"],
+                      rupiah(b["harga_satuan"]), stok, status))
+    kolom = [("ID BARANG", "left"), ("NAMA BARANG", "left"),
+             ("HARGA BARANG", "right"), ("STOK", "right"), ("STATUS", "left")]
+    if not buat_tabel(kolom, baris):
+        garis("-")
+        print(f"{'ID BARANG':<12}{'NAMA BARANG':<26}{'HARGA BARANG':>15}"
+              f"{'STOK':>8}  STATUS")
+        garis("-")
+        for b in baris:
+            status = "Tersedia" if "Tersedia" in b[4] else "Habis"
+            print(f"{b[0]:<12}{b[1]:<26}{b[2]:>15}{b[3]:>8}  {status}")
+        garis("-")
 
 
 def tambah_ke_keranjang(conn, keranjang):

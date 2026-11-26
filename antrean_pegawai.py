@@ -1,4 +1,4 @@
-from tampilan import judul, garis
+from tampilan import judul, garis, buat_tabel
 
 
 def ringkas_spesifikasi(conn, pesanan):
@@ -37,15 +37,20 @@ def tampil_antrean(conn):
             "ORDER BY urutan ASC"
         )
         antrean = cur.fetchall()
-    print(f"{'NO':<4}{'KODE BOOKING':<14}{'COSTUMER':<15}"
-          f"{'DETAIL SPESIFIKASI':<30}{'STATUS'}")
-    garis("-")
     if not antrean:
+        garis("-")
         print("Belum ada pesanan dalam antrean.")
-    for no, p in enumerate(antrean, start=1):
-        print(f"{str(no) + '.':<4}{p['kode_booking']:<14}"
-              f"{p['nama_pemesan'][:13]:<15}"
-              f"{ringkas_spesifikasi(conn, p):<30}"
-              f"{p['status_pesanan'].upper()}")
+    else:
+        baris = [(f"{no}.", p["kode_booking"], p["nama_pemesan"][:13],
+                  ringkas_spesifikasi(conn, p), p["status_pesanan"].upper())
+                 for no, p in enumerate(antrean, start=1)]
+        kolom = [("NO", "right"), ("KODE BOOKING", "left"), ("COSTUMER", "left"),
+                 ("DETAIL SPESIFIKASI", "left"), ("STATUS", "left")]
+        if not buat_tabel(kolom, baris):
+            print(f"{'NO':<4}{'KODE BOOKING':<14}{'COSTUMER':<15}"
+                  f"{'DETAIL SPESIFIKASI':<30}{'STATUS'}")
+            garis("-")
+            for b in baris:
+                print(f"{b[0]:<4}{b[1]:<14}{b[2]:<15}{b[3]:<30}{b[4]}")
     garis("-")
     return antrean
